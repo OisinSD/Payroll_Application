@@ -5,5 +5,22 @@
     "second_name": "ee",
     "hourly_rate": "2",
     "hours_worked_this_week": "33"
+  },
+  {
+    "id": 2,
+    "first_name": "oisin",
+    "second_name": "dillon",
+    "hourly_rate": "2",
+    "hours_worked_this_week": "33"
+  },
+  {
+    "id": 3,
+    "first_name": "oisin",
+    "second_name": "dillon",
+    "hourly_rate": 15.0,
+    "hours_worked_this_week": 10.0,
+    "PAYE_paid": 1560.0,
+    "USC_paid": 39.0,
+    "PRSI_paid": 0.0
   }
 ]

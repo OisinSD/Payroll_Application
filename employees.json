@@ -1,26 +1,15 @@
 [
   {
-    "id": 2,
-    "first_name": "john",
-    "second_name": "ee",
-    "hourly_rate": "2",
-    "hours_worked_this_week": "33"
-  },
-  {
-    "id": 2,
-    "first_name": "oisin",
-    "second_name": "dillon",
-    "hourly_rate": "2",
-    "hours_worked_this_week": "33"
-  },
-  {
-    "id": 3,
-    "first_name": "oisin",
-    "second_name": "dillon",
-    "hourly_rate": 15.0,
+    "id": 1,
+    "first_name": "test1",
+    "second_name": "..",
+    "hourly_rate": 10.0,
     "hours_worked_this_week": 10.0,
-    "PAYE_paid": 1560.0,
-    "USC_paid": 39.0,
-    "PRSI_paid": 0.0
+    "yearly_salary": 5200.0,
+    "weekly_gross_pay": 100.0,
+    "PAYE_paid": 20.0,
+    "USC_paid": 0.5,
+    "PRSI_paid": 0.0,
+    "weekly_net_pay": 79.5
   }
 ]

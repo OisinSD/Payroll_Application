@@ -4,16 +4,18 @@
 
 import json
 import os
-
+from datetime import date
 DATA_FILE = "employees.json"
 OVERTIME_RATE = 1.5
 PAYE_BAND_ONE = 0.2
 PAYE_BAND_TWO = 0.4
-
-exit_program = False
+OVERTIME_THRESHOLD = 40  # Hours per week
+PRSI_WEEKLY_THRESHOLD = 352  # Euros
+PAYE_THRESHOLD = 44000  # Euros yearly
 
 
 def calculate_yearly_salary(weekly_hours, hourly_rate):
+    """Calculate yearly salary and overtime pay from weekly hours and hourly rate."""
     # Ensure numeric inputs
     try:
         weekly_hours = float(weekly_hours)
@@ -21,9 +23,9 @@ def calculate_yearly_salary(weekly_hours, hourly_rate):
     except (TypeError, ValueError):
         return 0.0, 0.0
 
-    if weekly_hours > 40:
-        overtime_hours = weekly_hours - 40
-        normal_hours = 40
+    if weekly_hours > OVERTIME_THRESHOLD:
+        overtime_hours = weekly_hours - OVERTIME_THRESHOLD
+        normal_hours = OVERTIME_THRESHOLD
     else:
         overtime_hours = 0.0
         normal_hours = weekly_hours
@@ -37,18 +39,20 @@ def calculate_yearly_salary(weekly_hours, hourly_rate):
 
 
 def calculate_PAYE(yearly_salary):
+    """Calculate PAYE based on yearly salary, return weekly amount."""
     try:
         yearly = float(yearly_salary)
     except (TypeError, ValueError):
         return 0.0
 
-    if yearly < 44000:
+    if yearly < PAYE_THRESHOLD:
         PAYE = yearly * PAYE_BAND_ONE
     else:
-        higher_rate_tax = yearly - 44000
-        PAYE = (higher_rate_tax * PAYE_BAND_TWO) + (44000 * PAYE_BAND_ONE)
+        higher_rate_tax = yearly - PAYE_THRESHOLD
+        PAYE = (higher_rate_tax * PAYE_BAND_TWO) + (PAYE_THRESHOLD * PAYE_BAND_ONE)
 
-    return round(PAYE, 2)
+    weekly_PAYE = PAYE / 52.0
+    return round(weekly_PAYE, 2)
 
 def calculate_USC(yearly_salary):
     """Calculate Universal Social Charge (USC) based on yearly salary.
@@ -81,7 +85,8 @@ def calculate_USC(yearly_salary):
         usc += taxable * rate
         remaining -= taxable
 
-    return round(usc, 2)
+    weekly_usc = usc / 52.0
+    return round(weekly_usc, 2)
 
 
 def calculate_PRSI(yearly_salary):
@@ -96,40 +101,49 @@ def calculate_PRSI(yearly_salary):
         return 0.0
 
     weekly = yearly / 52.0
-    if weekly > 352:
+    if weekly > PRSI_WEEKLY_THRESHOLD:
         prsi = yearly * 0.042
     else:
         prsi = 0.0
 
-    return round(prsi, 2)
+    weekly_prsi = prsi / 52.0
+    return round(weekly_prsi, 2)
 
 
-def calculate_gross_pay(yearly_salary):
-    """Calculate gross pay (yearly salary before deductions).
+def calculate_gross_pay(weekly_hours, hourly_rate):
+    """Calculate weekly gross pay (before deductions).
     
-    Input: yearly_salary (number). Returns gross pay amount (float, rounded).
+    Input: weekly_hours (float), hourly_rate (float). Returns weekly gross pay (float, rounded).
     """
     try:
-        gross = float(yearly_salary)
+        hours = float(weekly_hours)
+        rate = float(hourly_rate)
     except (TypeError, ValueError):
         return 0.0
+
+    if hours > OVERTIME_THRESHOLD:
+        normal_pay = OVERTIME_THRESHOLD * rate
+        overtime_pay = (hours - OVERTIME_THRESHOLD) * rate * OVERTIME_RATE
+        gross = normal_pay + overtime_pay
+    else:
+        gross = hours * rate
 
     return round(gross, 2)
 
 
-def calculate_net_pay(yearly_salary, paye_paid, usc_paid, prsi_paid):
-    """Calculate net pay (gross salary minus all deductions).
+def calculate_net_pay(weekly_gross, paye_paid, usc_paid, prsi_paid):
+    """Calculate weekly net pay (gross minus all deductions).
     
     Input:
-      - yearly_salary (number): Gross yearly salary
-      - paye_paid (number): PAYE tax deducted
-      - usc_paid (number): USC tax deducted
-      - prsi_paid (number): PRSI deducted
+      - weekly_gross (number): Weekly gross pay
+      - paye_paid (number): Weekly PAYE deducted
+      - usc_paid (number): Weekly USC deducted
+      - prsi_paid (number): Weekly PRSI deducted
     
-    Returns: Net pay amount (float, rounded).
+    Returns: Weekly net pay (float, rounded).
     """
     try:
-        gross = float(yearly_salary)
+        gross = float(weekly_gross)
         paye = float(paye_paid)
         usc = float(usc_paid)
         prsi = float(prsi_paid)
@@ -140,6 +154,7 @@ def calculate_net_pay(yearly_salary, paye_paid, usc_paid, prsi_paid):
     return round(net, 2)
 
 def clean_user_input(prompt_message):
+    """Get user input, convert to lowercase, and strip whitespace."""
     user_input = input(prompt_message).lower().strip()
     return user_input
 
@@ -157,6 +172,7 @@ def load_employees():
 
 
 def save_employee(employees):
+    """Save employee list to JSON file."""
     try:
         with open(DATA_FILE, "w", encoding="utf-8") as f:
             json.dump(employees, f, indent=2)
@@ -164,17 +180,48 @@ def save_employee(employees):
         print("Unable to Save Employee Information.")
         return 
 
-def print_employee(employee):
+def print_employee_payroll(employee):
+    """Print detailed weekly payslip for a single employee."""
+    print(f"""
+              ========================================
+                     Financial IT Solutions Ltd
+                              PAYSLIP
+              ========================================
+              Employee ID:\t\t{employee.get('id')}
+              Employee Full Name:\t{employee.get('first_name','').title()} {employee.get('second_name','').title()}
+              Date: \t\t\t{date.today().strftime('%Y-%m-%d')}
+              Frequency:\t\tWeekly
+              ----------------------------------------
+              Employee Hourly Rate:\t{employee.get('hourly_rate')}
+              Employee Hours:\t\t{employee.get('hours_worked_this_week')}
+              ----------------------------------------
+              Gross Pay: \tEUR\t{employee.get('weekly_gross_pay')}
+              ----------------------------------------
+              Deductions:
+              PAYE\tEUR\t{employee.get('PAYE_paid')}
+              USC\tEUR\t{employee.get('USC_paid')}
+              PRSI\tEUR\t{employee.get('PRSI_paid')}
+              ========================================
+              Net Pay\tEUR\t{employee.get('weekly_net_pay')}
+              ========================================
+              """)
+    
+
+
+def print_all_employee_payroll_summary(employee):
+    """Print summary payslip (ID, name, net pay only) for all employees listing."""
     print(f"""
               ----------------------------------------
               Employee ID:\t\t{employee.get('id')}
               Employee Full Name:\t{employee.get('first_name','').title()} {employee.get('second_name','').title()}
-              Employee Hourly Rate:\t{employee.get('hourly_rate')}
-              Employee Hours:\t\t{employee.get('hours_worked_this_week')}
-              ----------------------------------------
+              Date: \t\t\t{date.today().strftime('%Y-%m-%d')}
+              Frequency:\t\tWeekly
+              ========================================
+              Net Pay\tEUR\t{employee.get('weekly_net_pay')}
+              ========================================
               """)
-
 def main_menu():
+    """Display main menu options."""
     print("""
           =====================
             Main Menu Options
@@ -182,15 +229,15 @@ def main_menu():
           1. Add Employee
           2. Delete Employee
           3. Show All employees
-          4. Show Employee & Save
+          4. Show Employee payroll
           5. Exit Program
           ====================
           """)
     
 def add_employee():
+    """Prompt for employee details, calculate payroll, and save to file."""
     print("\n--- Add New Employee ---")
     
-    # Load existing data
     employees = load_employees()
     first_name = clean_user_input("Enter employee first name: ")
     second_name = clean_user_input("Enter employee second name: ")
@@ -208,9 +255,16 @@ def add_employee():
     yearly_salary, overtime_pay = calculate_yearly_salary(hours_worked, hourly_rate)
     total_yearly_salary = yearly_salary + overtime_pay
 
+    # Calculate taxes based on yearly salary (functions return weekly amounts)
     PAYE_paid = calculate_PAYE(total_yearly_salary)
     USC_paid = calculate_USC(total_yearly_salary)
     PRSI_paid = calculate_PRSI(total_yearly_salary)
+    
+    # Calculate weekly gross and net pay
+    weekly_gross_pay = calculate_gross_pay(hours_worked, hourly_rate)
+    weekly_net_pay = calculate_net_pay(weekly_gross_pay, PAYE_paid, USC_paid, PRSI_paid)
+
+
     # Derive new ID from the last employee in the list to avoid duplicates
     if employees:
         try:
@@ -221,7 +275,6 @@ def add_employee():
     else:
         new_id = 1
 
-
     new_employee = {
         "id": new_id,
         "first_name": first_name,
@@ -229,18 +282,20 @@ def add_employee():
         "hourly_rate": hourly_rate,
         "hours_worked_this_week": hours_worked,
         "yearly_salary": round(total_yearly_salary, 2),
-        "overtime_paid": round(overtime_pay, 2),
+        "weekly_gross_pay": weekly_gross_pay,
         "PAYE_paid": PAYE_paid,
         "USC_paid": USC_paid,
-        "PRSI_paid": PRSI_paid
+        "PRSI_paid": PRSI_paid,
+        "weekly_net_pay": weekly_net_pay
     }
     
     employees.append(new_employee)
     save_employee(employees)
     
-    print(f"Success: {first_name.title()} added with ID #{new_id}!")
+    print(f"\n*Success: {first_name.title()} added with ID #{new_id}!*")
 
 def delete_employee(prompt_message):
+    """Remove employee by ID from file."""
     try:
         user_id = int(clean_user_input(prompt_message))
     except ValueError:
@@ -255,37 +310,46 @@ def delete_employee(prompt_message):
             updated_employees.append(emp)
 
     if len(updated_employees) == len(employees):
-        print(f"No employee found with ID {user_id}.")
+        print(f"\nNo employee found with ID {user_id}.")
         return
 
     save_employee(updated_employees)
-    print(f"Employee with ID {user_id} deleted.")
+    print(f"\n*Employee with ID {user_id} deleted.*")
 
 def show_all_employees():
+    """Display summary payslips for all employees."""
     all_employees = load_employees()
+    print("""" 
+              ========================================
+                      Financial IT Solutions Ltd
+                              PAYSLIP
+              ========================================
+          """)
     if not all_employees:
-        print("No employees found.")
+        print("\nNo employees found.")
         return
 
     for emp in all_employees:
-        print_employee(emp)
+        print_all_employee_payroll_summary(emp)
 
-def show_one_employee():
+def show_employee_payroll():
+    """Display detailed payslip for a specific employee by ID."""
     all_employees = load_employees()
     try:
         employee_input = int(clean_user_input("Enter Employee ID: "))
     except ValueError:
-        print("Invalid ID.")
+        print("\nInvalid ID.")
         return
 
     for emp in all_employees:
         if emp.get('id') == employee_input:
-            print_employee(emp)
+            print_employee_payroll(emp)
             return
 
     print(f"No employee found with ID {employee_input}.")
 
 def handle_menu_choice(user_choice):
+    """Route user menu choice to appropriate function. Returns True to continue, False to exit."""
     match user_choice:
         case "1" | "add employee":
             add_employee()
@@ -294,7 +358,7 @@ def handle_menu_choice(user_choice):
         case "3" | "show all employees":
             show_all_employees()
         case "4" | "show user" | "save employee":
-            show_one_employee()
+            show_employee_payroll()
         case "5" | "exit":
             return False
         case _:
@@ -302,6 +366,7 @@ def handle_menu_choice(user_choice):
     return True # Keep Program loop running.
 
 def main():
+    """Main program loop: display menu and process user choices until exit."""
     keep_running = True
     while keep_running:
         main_menu()
